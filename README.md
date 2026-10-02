@@ -10,6 +10,7 @@
 | `claude-md/global-CLAUDE.md` | 4·5·7장 | `~/.claude/CLAUDE.md`에 복사합니다. 멈춤 규칙, 종료 보고 형식, 피할 디자인을 담았습니다. |
 | `skills/_template/SKILL.md` | 6장 | 새 스킬을 만들 때 복사합니다. 트리거 중심 설명과 Gotchas 섹션이 들어 있습니다. |
 | `hooks/careful.sh`, `hooks/settings.careful.json` | 6장 | `rm -rf`, force-push, `git reset --hard`, `DROP TABLE`, `kubectl delete`, `terraform apply`를 실행 직전에 막는 훅입니다. |
+| `mods/token-weather/` | 9장 | 프롬프트 위에 맥락 창 사용량을 날씨처럼 보여 주는 모드입니다. 설치 방법은 아래에 있습니다. |
 
 ## 설치
 
@@ -24,6 +25,38 @@ cp hooks/careful.sh ~/.claude/hooks/
 ```
 
 훅은 항상 켜 두면 정상 작업도 막을 수 있습니다. 불편하면 프로젝트의 `.claude/settings.json`에만 넣어 해당 저장소에서만 켜세요.
+
+## 토큰 웨더 모드
+
+프롬프트 바로 위에 다음과 같은 한 줄이 나옵니다. 매 턴이 끝날 때마다 새로 계산합니다.
+
+```
+☂ Showers  67% · 134.4k / 200k  ▂▆  ▲ +94.4k last turn
+```
+
+| 사용률 | 표시 | 색 |
+|---|---|---|
+| 25% 미만 | ☀ Clear | 노랑 |
+| 25~49% | ☁ Cloudy | 청록 |
+| 50~74% | ☂ Showers | 파랑 |
+| 75~89% | ☇ Storm | 자홍 |
+| 90% 이상 | ↯ Compact soon | 빨강 (처음 넘을 때 알림 한 번) |
+
+막대는 최근 12턴의 사용량이고, 서브에이전트의 턴은 세지 않습니다. Claude Code v2.1.287 이상에서 동작합니다.
+
+설치는 둘 중 하나를 고릅니다.
+
+```bash
+# 1. 이 저장소를 마켓플레이스로 등록해 설치 (계속 쓸 때)
+/plugin marketplace add shineonyou1274/dev
+/plugin install token-weather@shiny-mods
+/reload-plugins
+
+# 2. 한 번 시험해 볼 때
+git clone https://github.com/shineonyou1274/dev && claude --plugin-dir ./dev/mods/token-weather
+```
+
+구간 경계(예: Storm을 70%부터)는 `mods/token-weather/hooks/weather.ts`의 `forecast` 함수에서 바꿉니다. 바꾼 뒤에는 `claude plugin test mods/token-weather`로 확인합니다.
 
 ## 자습서에서 바로 쓸 습관 (선생님 작업 기준)
 

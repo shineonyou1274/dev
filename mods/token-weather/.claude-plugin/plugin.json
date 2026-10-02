@@ -1,0 +1,6 @@
+{
+  "name": "token-weather",
+  "version": "0.1.0",
+  "description": "프롬프트 위에 맥락 창 사용량을 날씨처럼 보여 주는 한 줄",
+  "types": "./types/index.d.ts"
+}
