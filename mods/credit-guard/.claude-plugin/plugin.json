@@ -1,0 +1,6 @@
+{
+  "name": "credit-guard",
+  "version": "0.1.0",
+  "description": "Higgsfield에서 크레딧을 쓰는 생성 도구가 실행되기 직전에 진행할지 묻는다",
+  "types": "./types/index.d.ts"
+}

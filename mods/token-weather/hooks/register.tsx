@@ -30,7 +30,7 @@ export const register: Register = on => {
         warned: percent >= WARN_AT,
       }
     })
-    if (crossed) $.ui.toast('↯ 맥락 창이 90%를 넘었습니다. 쉬기 전에 /compact 를 고려하세요.')
+    if (crossed) $.ui.toast(`☇ 맥락 창이 ${WARN_AT}%를 넘었습니다. 작업이 끊기는 지점에서 /compact 를 해 두세요.`)
 
     return result
   })

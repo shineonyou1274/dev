@@ -29,4 +29,5 @@ export function delta(change: number): string {
 }
 
 export const HISTORY = 12
-export const WARN_AT = 90
+// Storm에 들어서는 시점. 이때 쉬기 전 /compact 를 해 두면 캐시가 식은 뒤 다시 읽는 비용을 피한다.
+export const WARN_AT = 75

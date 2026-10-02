@@ -10,6 +10,7 @@
 | `claude-md/global-CLAUDE.md` | 4·5·7장 | `~/.claude/CLAUDE.md`에 복사합니다. 멈춤 규칙, 종료 보고 형식, 피할 디자인을 담았습니다. |
 | `skills/_template/SKILL.md` | 6장 | 새 스킬을 만들 때 복사합니다. 트리거 중심 설명과 Gotchas 섹션이 들어 있습니다. |
 | `hooks/careful.sh`, `hooks/settings.careful.json` | 6장 | `rm -rf`, force-push, `git reset --hard`, `DROP TABLE`, `kubectl delete`, `terraform apply`를 실행 직전에 막는 훅입니다. |
+| `mods/credit-guard/` | 9장 | Higgsfield 생성 도구가 실행되기 직전에 진행할지 묻는 모드입니다. |
 | `mods/token-weather/` | 9장 | 프롬프트 위에 맥락 창 사용량을 날씨처럼 보여 주는 모드입니다. 설치 방법은 아래에 있습니다. |
 
 ## 설치
@@ -40,9 +41,9 @@ cp hooks/careful.sh ~/.claude/hooks/
 | 25~49% | ☁ Cloudy | 청록 |
 | 50~74% | ☂ Showers | 파랑 |
 | 75~89% | ☇ Storm | 자홍 |
-| 90% 이상 | ↯ Compact soon | 빨강 (처음 넘을 때 알림 한 번) |
+| 90% 이상 | ↯ Compact soon | 빨강 |
 
-막대는 최근 12턴의 사용량이고, 서브에이전트의 턴은 세지 않습니다. Claude Code v2.1.287 이상에서 동작합니다.
+75%(Storm)를 처음 넘을 때 `/compact`를 권하는 알림이 한 번 뜹니다. 막대는 최근 12턴의 사용량이고, 서브에이전트의 턴은 세지 않습니다. Claude Code v2.1.287 이상에서 동작합니다.
 
 설치는 둘 중 하나를 고릅니다.
 
@@ -50,6 +51,7 @@ cp hooks/careful.sh ~/.claude/hooks/
 # 1. 이 저장소를 마켓플레이스로 등록해 설치 (계속 쓸 때)
 /plugin marketplace add shineonyou1274/dev
 /plugin install token-weather@shiny-mods
+/plugin install credit-guard@shiny-mods
 /reload-plugins
 
 # 2. 한 번 시험해 볼 때
@@ -57,6 +59,16 @@ git clone https://github.com/shineonyou1274/dev && claude --plugin-dir ./dev/mod
 ```
 
 구간 경계(예: Storm을 70%부터)는 `mods/token-weather/hooks/weather.ts`의 `forecast` 함수에서 바꿉니다. 바꾼 뒤에는 `claude plugin test mods/token-weather`로 확인합니다.
+
+## 크레딧 확인 모드 (credit-guard)
+
+Claude가 Higgsfield에서 크레딧을 쓰는 도구(영상·이미지·음성 생성, 업스케일, 배경 제거, 프리셋 실행 등)를 부르기 직전에 확인 창을 띄웁니다. 창에는 모델 이름과 프롬프트 앞부분이 함께 나옵니다.
+
+- **진행:** 그대로 실행합니다.
+- **취소:** 실행을 막고, Claude에게 다시 시도하지 말고 무엇을 바꿀지 물어보라고 알립니다.
+- **이번 세션은 묻지 않기:** 같은 세션에서는 더 묻지 않습니다. 새 세션을 시작하면 다시 묻습니다.
+
+잔액 조회, 생성 기록 보기, 광고 견적처럼 크레딧을 쓰지 않는 도구는 묻지 않습니다. 창을 닫거나 물어볼 사람이 없는 실행(`claude -p`)에서는 취소로 처리합니다. 막을 도구 목록은 `mods/credit-guard/hooks/spend.ts`의 `SPENDING`에서 고칩니다.
 
 ## 자습서에서 바로 쓸 습관 (선생님 작업 기준)
 
