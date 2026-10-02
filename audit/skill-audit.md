@@ -31,12 +31,12 @@ description: "이미 쓴 한국어 글에서 AI 문체 패턴(쉼표 과다, 띄
 | expert-panel, first-principles | 겹치지 않습니다. | 그대로 둡니다. |
 
 ## 3. 함정(Gotchas) 섹션이 없는 스킬이 많습니다
-ad-motion-make, ad-motion-prompt, videointro, videointro2에는 "## 함정" 섹션이 있습니다. videointro의 "함정 (이번 제작에서 실제로 겪은 것)"이 자습서가 말하는 모양 그대로입니다. 나머지 17개에는 이 섹션이 없고, 일부 스킬에 "⚠️ 반드시 준수" 같은 문장이 흩어져 있을 뿐입니다. 아래 네 개부터 같은 섹션을 만드세요.
+ad-motion-make, ad-motion-prompt, videointro, videointro2에는 "## 함정" 섹션이 있습니다. videointro의 "함정 (이번 제작에서 실제로 겪은 것)"이 자습서가 말하는 모양 그대로입니다. sheet-game-builder의 "자주 나는 오류" 표와 suneung-signal-workbook의 "주의사항 (Node.js 22 파싱 버그)"도 같은 역할을 합니다. 나머지 스킬에는 이런 섹션이 없고, 일부 스킬에 "⚠️ 반드시 준수" 같은 문장이 흩어져 있을 뿐입니다. 아래 네 개부터 섹션을 만드세요. 붙여 넣을 초안은 `audit/skill-frontmatter-drafts.md`에 있습니다.
 
-- **single-html-app**: 다크 모드 색 토큰이 한쪽에만 있어 깨진 일, 아티팩트에서 localStorage가 막힌 일 등 실제로 겪은 문제
-- **news-to-worksheet**: 본문에 있는 "DOCX 테이블 레이아웃, 어기면 뒷 페이지 열 찌그러짐"을 함정 섹션으로 옮기고, 그 뒤 생긴 실수를 덧붙임
-- **sheet-game-builder**: "정답이 한국어인데 오답이 영어면 답이 보인다" 같은 문장을 함정 섹션으로 모음
-- **guide-panel-layout**: 본문 64행의 "자주 틀리는 것: 한글에 넓은 자간…" 문장을 함정 섹션으로 옮김
+- **single-html-app**: 본문 2~3절의 다크 모드 토큰, 아티팩트 제약, localStorage 예외 처리를 함정 섹션으로 모음
+- **guide-panel-layout**: 본문의 "반드시 지킬 것"과 "자주 틀리는 것"을 함정 섹션으로 옮김
+- **pd-runsheet**: 공유보드 주소, 권한 승인에서 막히는 시간, 상상으로 그린 수업 장면을 함정 섹션으로 모음
+- **news-to-worksheet**: 본문의 "DOCX 테이블 레이아웃, 어기면 뒷 페이지 열 찌그러짐"을 함정 섹션으로 옮김
 
 ## 4. 너무 긴 SKILL.md (200줄 넘음)
 

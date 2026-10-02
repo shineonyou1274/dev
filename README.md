@@ -7,6 +7,7 @@
 | 파일 | 자습서 장 | 쓰는 법 |
 |---|---|---|
 | `audit/skill-audit.md` | 5·6·11장 | 지금 쓰는 스킬 21개를 점검한 결과입니다. 1번 항목(humanizer 머리말 깨짐)부터 고치세요. |
+| `audit/skill-frontmatter-drafts.md` | 6장 | 점검 결과를 고칠 때 붙여 넣을 머리말과 함정 섹션 초안입니다. |
 | `claude-md/global-CLAUDE.md` | 4·5·7장 | `~/.claude/CLAUDE.md`에 복사합니다. 멈춤 규칙, 종료 보고 형식, 피할 디자인을 담았습니다. |
 | `skills/_template/SKILL.md` | 6장 | 새 스킬을 만들 때 복사합니다. 트리거 중심 설명과 Gotchas 섹션이 들어 있습니다. |
 | `hooks/careful.sh`, `hooks/settings.careful.json` | 6장 | `rm -rf`, force-push, `git reset --hard`, `DROP TABLE`, `kubectl delete`, `terraform apply`를 실행 직전에 막는 훅입니다. |
