@@ -11,6 +11,7 @@
 | `skills/_template/SKILL.md` | 6장 | 새 스킬을 만들 때 복사합니다. 트리거 중심 설명과 Gotchas 섹션이 들어 있습니다. |
 | `hooks/careful.sh`, `hooks/settings.careful.json` | 6장 | `rm -rf`, force-push, `git reset --hard`, `DROP TABLE`, `kubectl delete`, `terraform apply`를 실행 직전에 막는 훅입니다. |
 | `mods/credit-guard/` | 9장 | Higgsfield 생성 도구가 실행되기 직전에 진행할지 묻는 모드입니다. |
+| `mods/turn-bell/` | 9장 | 2분 넘게 걸린 작업이 끝나면 알려 주는 모드입니다. |
 | `mods/token-weather/` | 9장 | 프롬프트 위에 맥락 창 사용량을 날씨처럼 보여 주는 모드입니다. 설치 방법은 아래에 있습니다. |
 
 ## 설치
@@ -54,6 +55,7 @@ cp hooks/careful.sh ~/.claude/hooks/
 /plugin marketplace add shineonyou1274/dev
 /plugin install token-weather@shiny-mods
 /plugin install credit-guard@shiny-mods
+/plugin install turn-bell@shiny-mods
 /reload-plugins
 
 # 2. 한 번 시험해 볼 때
@@ -71,6 +73,16 @@ Claude가 Higgsfield에서 크레딧을 쓰는 도구(영상·이미지·음성 
 - **이번 세션은 묻지 않기:** 같은 세션에서는 더 묻지 않습니다. 새 세션을 시작하면 다시 묻습니다.
 
 잔액 조회, 생성 기록 보기, 광고 견적처럼 크레딧을 쓰지 않는 도구는 묻지 않습니다. 창을 닫거나 물어볼 사람이 없는 실행(`claude -p`)에서는 취소로 처리합니다. 막을 도구 목록은 `mods/credit-guard/hooks/spend.ts`의 `SPENDING`에서 고칩니다.
+
+## 긴 작업 완료 알림 (turn-bell)
+
+Claude의 작업 한 번(턴)이 2분 넘게 걸리면, 끝났을 때 다음과 같은 알림이 15초 동안 뜹니다.
+
+```
+✓ 작업이 끝났습니다 · 3분 12초 · 도구 41회
+```
+
+중단했거나 오류로 멈춘 경우에는 첫머리가 "■ 작업을 중단했습니다", "✕ 오류로 멈췄습니다"로 바뀝니다. 알림이 사라진 뒤에도 같은 문구가 상태줄에 남아 있다가, 다음 요청을 보내면 지워집니다. 서브에이전트의 작업은 따로 알리지 않습니다. 기준 시간은 `mods/turn-bell/hooks/bell.ts`의 `LONG_MS`에서 바꿉니다.
 
 ## 자습서에서 바로 쓸 습관 (선생님 작업 기준)
 

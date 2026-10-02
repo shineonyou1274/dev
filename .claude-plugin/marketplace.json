@@ -13,6 +13,11 @@
       "name": "credit-guard",
       "source": "./mods/credit-guard",
       "description": "Higgsfield에서 크레딧을 쓰는 생성 도구가 실행되기 직전에 진행할지 묻는다"
+    },
+    {
+      "name": "turn-bell",
+      "source": "./mods/turn-bell",
+      "description": "2분 넘게 걸린 작업이 끝나면 걸린 시간과 도구 호출 수를 알린다"
     }
   ],
   "description": "손평화 선생님의 Claude Code 모드 모음"

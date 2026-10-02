@@ -1,0 +1,5 @@
+{
+  "name": "turn-bell",
+  "version": "0.1.0",
+  "description": "2분 넘게 걸린 작업이 끝나면 걸린 시간과 도구 호출 수를 알린다"
+}
