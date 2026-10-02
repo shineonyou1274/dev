@@ -31,3 +31,30 @@ export function delta(change: number): string {
 export const HISTORY = 12
 // Storm에 들어서는 시점. 이때 쉬기 전 /compact 를 해 두면 캐시가 식은 뒤 다시 읽는 비용을 피한다.
 export const WARN_AT = 75
+
+// 세션 비용. 구독 사용자에게는 청구액이 아니라 작업량 지표이므로 '≈'를 붙인다.
+export function money(usd: number): string {
+  return `≈$${usd < 10 ? usd.toFixed(2) : usd.toFixed(1)}`
+}
+
+// '42m', '1h 20m'처럼 남은 시간을 짧게 쓴다. 시간대와 상관없이 맞도록 남은 시간으로 보여 준다.
+export function until(ms: number): string {
+  const minutes = Math.max(0, Math.round(ms / 60_000))
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+export function limitColor(percent: number): string {
+  if (percent >= 90) return 'red'
+  if (percent >= LIMIT_WARN_AT) return 'magenta'
+  return 'gray'
+}
+
+export function limitText(percent: number, resetsAt: string | undefined, now: number): string {
+  const reset = resetsAt ? Date.parse(resetsAt) : NaN
+  const left = Number.isFinite(reset) ? ` (${until(reset - now)} 후 리셋)` : ''
+  return `5h ${Math.round(percent)}%${left}`
+}
+
+export const LIMIT_WARN_AT = 80
