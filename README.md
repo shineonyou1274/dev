@@ -14,6 +14,7 @@
 | `mods/credit-guard/` | 9장 | Higgsfield 생성 도구가 실행되기 직전에 진행할지 묻는 모드입니다. |
 | `mods/turn-bell/` | 9장 | 2분 넘게 걸린 작업이 끝나면 알려 주는 모드입니다. |
 | `mods/token-weather/` | 9장 | 프롬프트 위에 맥락 창 사용량을 날씨처럼 보여 주는 모드입니다. 설치 방법은 아래에 있습니다. |
+| `skills/fixed/videointro2.zip` | 6장 | videointro2 스킬에 렌더 후 자기 검사(장면 경계 프레임 시트, 소리 검사, 점검 목록)를 더한 판입니다. claude.ai의 스킬 설정에서 기존 videointro2를 이 파일로 바꿉니다. |
 
 ## 설치
 
