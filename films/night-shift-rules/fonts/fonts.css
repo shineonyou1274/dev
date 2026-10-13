@@ -1,0 +1,4 @@
+@font-face { font-family: 'NSans'; src: url(sans-800.woff2) format('woff2'); font-weight: 800; }
+@font-face { font-family: 'NSans'; src: url(sans-500.woff2) format('woff2'); font-weight: 500; }
+@font-face { font-family: 'Pen'; src: url(pen.woff2) format('woff2'); }
+@font-face { font-family: 'Mono'; src: url(mono-700.woff2) format('woff2'); font-weight: 700; }
