@@ -148,6 +148,7 @@ mix = mix / (np.abs(mix).max() + 1e-9) * .9
 for c in range(2): mix[:, c] = limit(compress(mix[:, c], .3, 2.5))
 for e in ev('silence'):
     i0, i1 = int(e['t'] * SR), int((e['t'] + e['d']) * SR); mix[i0:i1] = 0
+i1 = int((fz['t'] + fz['d']) * SR); mix[i1:] += rng.standard_normal((N - i1, 2)) * 3e-4   # tape-off hiss after STOP (keeps ffmpeg's loudness pass running to the end)
 os.makedirs(os.path.join(HERE, 'out'), exist_ok=True)
-sf.write(os.path.join(HERE, 'out', 'mix.wav'), mix.astype(np.float32), SR)
+sf.write(os.path.join(HERE, 'out', 'mix.wav'), mix, SR, subtype='PCM_24')
 print('out/mix.wav', mix.shape[0] / SR, 's')
