@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>경북, 삭제하시겠습니까</title>
+<style>
+@font-face { font-family: 'Brush'; src: url(fonts/brush.woff2) format('woff2'); }
+@font-face { font-family: 'Batang'; src: url(fonts/batang-400.woff2) format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Batang'; src: url(fonts/batang-700.woff2) format('woff2'); font-weight: 700; }
+html, body { margin: 0; background: #e9e1d1; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #e9e1d1; }
+#cv { position: absolute; inset: 0; }
+#sub { position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; font: 700 42px 'Batang', serif;
+  color: #241f1b; letter-spacing: 2px; opacity: 0;
+  text-shadow: 0 0 6px #e9e1d1, 0 0 14px #e9e1d1, 0 0 24px #e9e1d1, 0 0 36px rgba(233,225,209,.9); }
+</style></head>
+<body>
+<div id="stage"><canvas id="cv" width="1920" height="1080"></canvas><div id="sub"></div></div>
+<!-- 글꼴 전체 문자열(fonts.py 부분 글꼴용): 이 마을에는 이름이 있었습니다. 아침이면 굴뚝마다 연기가 오르고, 골목에는 아이들 소리가 났습니다.
+한 집, 또 한 집. 사람이 떠나면 불이 꺼집니다. 불이 꺼지면, 이름도 지도에서 흐려집니다. 경북의 작은 마을들이 지금, 이렇게 지워지고 있습니다.
+삭제하시겠습니까? 아직, 이곳에 사람이 살고 있습니다. 감나무골 경상북도 울릉도 독도 예 아니오 사람 경북, 삭제하시겠습니까
+사람이 떠나 지도에서 지워져 가는 경북의 작은 마을 · ( ) -->
+<script>
+'use strict';
+const W = 1920, H = 1080, cv = document.getElementById('cv'), MAIN = cv.getContext('2d');
+let ctx = MAIN;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lin = (t, a, b) => clamp((t - a) / (b - a));
+const ss = x => x * x * (3 - 2 * x);
+const eout = x => 1 - (1 - x) ** 3, ein = x => x * x * x, eio = x => x < .5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+const INK = a => `rgba(24,21,19,${a})`, RED = '#b3291f', PAPER = '#e9e1d1';
+let T;                                                     // timing.json (shared with the score)
+
+// ---------- deterministic randomness and noise ----------
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hash = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+function vnoise(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = ss(xf), v = ss(yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+const fbm = (x, y) => .5 * vnoise(x, y) + .27 * vnoise(x * 2.1, y * 2.1) + .15 * vnoise(x * 4.3, y * 4.3) + .08 * vnoise(x * 8.7, y * 8.7);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+// ---------- masked drawing: a sprite appears or dries away along a noise "arrival" field ----------
+// field: Float32Array fw*fh of arrival values; reveal shows where field < thr, erase hides where field < thr
+const TMP = new Map();
+function tmp(w, h, k) { const key = k + w + 'x' + h; if (!TMP.has(key)) TMP.set(key, mk(w, h)); return TMP.get(key); }
+function masked(spr, thr, soft, erase, dx, dy, s = 1, alpha = 1) {
+  if (alpha <= 0) return;
+  const { c, f, fw, fh } = spr;
+  if (!erase && thr >= spr.max + soft && alpha >= 1) { ctx.drawImage(c, dx, dy, c.width * s, c.height * s); return; }
+  if (!erase && thr <= spr.min) return;
+  if (erase && thr <= spr.min - soft) { ctx.globalAlpha = alpha; ctx.drawImage(c, dx, dy, c.width * s, c.height * s); ctx.globalAlpha = 1; return; }
+  if (erase && thr >= spr.max + soft) return;
+  const m = tmp(fw, fh, 'm'), mc = m.getContext('2d'), id = mc.createImageData(fw, fh), d = id.data;
+  for (let i = 0; i < f.length; i++) { const a = erase ? clamp((f[i] - thr) / soft + 1) : clamp((thr - f[i]) / soft); d[i * 4 + 3] = a * 255; }
+  mc.putImageData(id, 0, 0);
+  const o = tmp(c.width, c.height, 'o'), oc = o.getContext('2d');
+  oc.globalCompositeOperation = 'copy'; oc.drawImage(c, 0, 0);
+  oc.globalCompositeOperation = 'destination-in'; oc.imageSmoothingEnabled = true; oc.drawImage(m, 0, 0, c.width, c.height);
+  ctx.globalAlpha = alpha; ctx.drawImage(o, dx, dy, c.width * s, c.height * s); ctx.globalAlpha = 1;
+}
+function field(spr, fn, q = 4) {     // fn(x, y) in sprite pixels -> arrival value
+  const fw = Math.ceil(spr.c.width / q), fh = Math.ceil(spr.c.height / q), f = new Float32Array(fw * fh);
+  let mn = 1e9, mx = -1e9;
+  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const v = fn(x * q, y * q); f[y * fw + x] = v; mn = Math.min(mn, v); mx = Math.max(mx, v); }
+  Object.assign(spr, { f, fw, fh, min: mn, max: mx }); return spr;
+}
+
+// ---------- paper ----------
+let PAPERC;
+function makePaper() {
+  const c = mk(W, H), g = c.getContext('2d'), id = g.createImageData(W, H), d = id.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = fbm(x / 140, y / 140) * 14 + vnoise(x / 3, y / 3) * 6 + (hash(x, y) - .5) * 5;
+    const r = Math.hypot((x - W / 2) / W, (y - H / 2) / H), v = -r * r * 38;
+    const i = (y * W + x) * 4; d[i] = 228 + n + v; d[i + 1] = 221 + n + v; d[i + 2] = 205 + n * .9 + v; d[i + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  const R = rng(5); g.strokeStyle = 'rgba(160,145,120,.10)'; g.lineWidth = .7;
+  for (let k = 0; k < 900; k++) { const x = R() * W, y = R() * H, a = R() * 6.28, l = 6 + R() * 30;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * l * .5 + R() * 4, y + Math.sin(a) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  PAPERC = c;
+}
+
+// ---------- mountains: ridge lines with a wash that fades downward, dry-brush grain, mi-dots ----------
+const RIDGES = [];
+function ridgeY(x, base, amp, seed, sharp) {
+  const u = x / W;
+  let y = base - amp * (.55 * Math.sin(u * 3.1 + seed) + .3 * Math.sin(u * 7.3 + seed * 2.3) + .15 * Math.sin(u * 15.7 + seed * 1.7));
+  y -= amp * sharp * Math.exp(-((u - (.3 + .4 * hash(seed, 1))) ** 2) / .006);    // one taller peak
+  return y + (fbm(x / 60, seed) - .5) * amp * .18;
+}
+function makeRidge({ base, amp, seed, sharp, depth, a, from, to, dots, line, drop }) {
+  const c = mk(W, H), g = c.getContext('2d'), R = rng(seed * 99 | 0);
+  const taper = x => Math.min(from > 0 ? ss(clamp((x - from) / 260)) : 1, to < W ? ss(clamp((to - x) / 260)) : 1);
+  const pts = []; for (let x = from; x <= to; x += 3) pts.push([x, ridgeY(x, base, amp, seed, sharp) + (1 - taper(x)) * amp * 1.1, taper(x)]);
+  // wash: many thin vertical strips, each a gradient from the ridge down
+  const wc = mk(W, H), wg = wc.getContext('2d');
+  for (const [x, y, tp] of pts) {
+    const dd = depth * (.8 + .4 * fbm(x / 240, seed + 3)) * (.5 + .5 * tp), aa = a * tp;
+    const gr = wg.createLinearGradient(0, y, 0, y + dd);
+    gr.addColorStop(0, INK(aa)); gr.addColorStop(.12, INK(aa * .7)); gr.addColorStop(.5, INK(aa * .28)); gr.addColorStop(1, INK(0));
+    wg.fillStyle = gr; wg.fillRect(x - 1.5, y, 3.5, dd);
+  }
+  g.filter = 'blur(2.5px)'; g.drawImage(wc, 0, 0); g.filter = 'none';
+  // dry brush: knock holes in the wash
+  const id = g.getImageData(0, 0, W, H), d = id.data;
+  for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
+    const i = (y * W + x) * 4; if (!d[i + 3]) continue;
+    const n = fbm(x / 34 + seed, y / 26), m = vnoise(x / 4, y / 4); d[i + 3] *= clamp(.55 + (n - .5) * 1.3 + (m - .5) * .25);
+  }
+  g.putImageData(id, 0, 0);
+  // ridge line: a brush stroke of varying width
+  if (line) { for (let i = 1; i < pts.length; i++) { const [x0, y0, tp] = pts[i - 1], [x1, y1] = pts[i];
+    g.strokeStyle = INK(line * tp * (.6 + .4 * fbm(x0 / 80, seed))); g.lineWidth = 1 + 3.5 * fbm(x0 / 50, seed + 9); g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1 + .5); g.stroke(); } }
+  // mi-dots (moss dots / pines) along the ridge
+  for (let k = 0; k < dots; k++) { const p = pts[Math.floor(R() * pts.length)], r = (2 + R() * 4.5) * p[2]; if (r < 1) continue;
+    g.fillStyle = INK(.55 + R() * .35); g.beginPath(); g.ellipse(p[0] + (R() - .5) * 20, p[1] + R() * 22, r * 1.6, r, (R() - .5) * .5, 0, 6.28); g.fill(); }
+  const spr = { c };
+  // arrival: distance from the drop point, roughened
+  field(spr, (x, y) => Math.hypot(x - drop[0], (y - drop[1]) * 1.3) / 1500 + fbm(x / 70, y / 70) * .35, 6);
+  return spr;
+}
+
+// ---------- houses ----------
+const HOUSES = [];
+function makeHouse(kind, seed) {
+  const c = mk(240, 170), g = c.getContext('2d'), R = rng(seed);
+  const jit = () => (R() - .5) * 2.2;
+  g.lineCap = g.lineJoin = 'round';
+  // wall wash + posts + door
+  g.fillStyle = INK(.10); g.fillRect(48, 86, 144, 58);
+  g.strokeStyle = INK(.8); g.lineWidth = 3;
+  for (const x of [50, 120, 190]) { g.beginPath(); g.moveTo(x + jit(), 84); g.lineTo(x + jit(), 146); g.stroke(); }
+  g.lineWidth = 2.2; g.beginPath(); g.moveTo(44, 146 + jit()); g.lineTo(198, 146 + jit()); g.stroke();
+  g.strokeStyle = INK(.55); g.lineWidth = 1.6; g.strokeRect(62, 102, 34, 42);
+  g.strokeStyle = INK(.65); g.strokeRect(140, 98, 26, 24);                      // window (lit red later)
+  if (kind === 0) {   // tiled roof with upturned eaves
+    g.fillStyle = INK(.86); g.beginPath();
+    g.moveTo(8, 70); g.quadraticCurveTo(30, 82, 60, 78); g.lineTo(180, 78); g.quadraticCurveTo(210, 82, 232, 70);
+    g.quadraticCurveTo(214, 62, 196, 44); g.lineTo(44, 44); g.quadraticCurveTo(26, 62, 8, 70); g.fill();
+    g.fillRect(38, 74, 164, 10);
+    g.strokeStyle = INK(.95); g.lineWidth = 6; g.beginPath(); g.moveTo(40, 42); g.quadraticCurveTo(120, 36, 200, 42); g.stroke();
+    g.strokeStyle = 'rgba(233,225,209,.35)'; g.lineWidth = 1.2;
+    for (let x = 52; x < 192; x += 9) { g.beginPath(); g.moveTo(x, 47); g.lineTo(x + (x - 120) * .06, 76); g.stroke(); }
+  } else {            // thatched roof: soft mound with straw strokes
+    g.fillStyle = INK(.5); g.beginPath();
+    g.moveTo(22, 84); g.bezierCurveTo(26, 40, 214, 40, 218, 84); g.quadraticCurveTo(120, 92, 22, 84); g.fill();
+    g.strokeStyle = INK(.6); g.lineWidth = 1.3;
+    for (let k = 0; k < 46; k++) { const x = 34 + R() * 172, y = 54 + R() * 26; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (x - 120) * .04, y + 9 + R() * 6); g.stroke(); }
+    g.strokeStyle = INK(.75); g.lineWidth = 3; g.beginPath(); g.moveTo(24, 84); g.quadraticCurveTo(120, 92, 216, 84); g.stroke();
+  }
+  // chimney
+  g.fillStyle = INK(.7); g.fillRect(196, 70, 10, 30);
+  const spr = { c };
+  field(spr, (x, y) => x / 240 * .55 + fbm(x / 22 + seed, y / 22) * .6, 4);             // brushed in left to right
+  spr.er = field({ c }, (x, y) => fbm(x / 14 + seed * 3, y / 14) * .8 + (1 - y / 170) * .35, 3);  // dries away top first
+  return spr;
+}
+// valley houses: [x, y, scale, kind]   (index 4 keeps its light)
+const HPOS = [[700, 742, .52, 1], [812, 760, .6, 0], [930, 752, .55, 1], [1046, 772, .64, 0], [1158, 744, .58, 0],
+              [760, 822, .7, 0], [905, 838, .76, 1], [1062, 846, .72, 1], [1214, 812, .62, 1]];
+const OUT_ORDER = [2, 6, 0, 7, 3, 8, 5, 1];       // which house goes dark at each lights_out time; 4 stays
+
+// ---------- calligraphy sprites ----------
+let NAME, SEAL, TITLE;
+function makeName() {
+  const c = mk(220, 620), g = c.getContext('2d');
+  g.fillStyle = INK(.92); g.font = "150px 'Brush'"; g.textAlign = 'center'; g.textBaseline = 'top';
+  [...'감나무골'].forEach((ch, i) => g.fillText(ch, 110, 8 + i * 150));
+  NAME = { c }; field(NAME, (x, y) => y / 620 + fbm(x / 30, y / 30) * .12, 4);
+}
+function makeSeal(size, text) {
+  const c = mk(size, size), g = c.getContext('2d'), R = rng(size);
+  g.fillStyle = RED; g.beginPath(); g.roundRect(size * .04, size * .04, size * .92, size * .92, size * .1); g.fill();
+  g.fillStyle = PAPER; g.font = `700 ${size * .34}px 'Batang'`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text[0], size / 2, size * .3); g.fillText(text[1], size / 2, size * .7);
+  g.strokeStyle = PAPER; g.lineWidth = size * .03; g.strokeRect(size * .12, size * .12, size * .76, size * .76);
+  const id = g.getImageData(0, 0, size, size), d = id.data;        // stamp texture: paper shows through
+  for (let i = 0; i < d.length; i += 4) { const x = (i / 4) % size, y = (i / 4 / size) | 0; if (d[i + 3] && fbm(x / (size * .03), y / (size * .03)) < .33) d[i + 3] *= .25; }
+  g.putImageData(id, 0, 0); return c;
+}
+
+// ---------- the map of Gyeongbuk ----------
+let MAP = null, DOTS = [], HERO = [0, 0];
+const proj = ([lon, lat]) => [960 + (lon - 129.835) * 472 * .805, 540 + (36.555 - lat) * 472];
+async function makeMap() {
+  const geo = await (await fetch('data/prov.json')).json();
+  const f = geo.features.find(q => q.properties.name === '경상북도');
+  const polys = f.geometry.coordinates.map(p => p[0].map(proj));
+  const main = polys.reduce((a, b) => (a.length > b.length ? a : b));
+  const dokdo = [[131.8646, 37.2413], [131.8696, 37.2398]].map(proj);
+  const c = mk(W, H), g = c.getContext('2d');
+  // inside wash
+  g.fillStyle = INK(.07); for (const p of polys) { g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
+  // brush outline, width breathing along the path
+  g.lineCap = g.lineJoin = 'round';
+  for (const p of polys) for (let i = 1; i <= p.length; i++) {
+    const [x0, y0] = p[i - 1], [x1, y1] = p[i % p.length];
+    g.strokeStyle = INK(.7 + .25 * fbm(x0 / 40, y0 / 40)); g.lineWidth = 1.5 + 4 * fbm(x0 / 30, y0 / 30);
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+  for (const [x, y] of dokdo) { g.fillStyle = INK(.85); g.beginPath(); g.arc(x, y, 3.2, 0, 6.28); g.fill(); }
+  g.fillStyle = INK(.6); g.font = "400 24px 'Batang'"; g.textAlign = 'left';
+  const ul = proj([130.86, 37.5]); g.fillText('울릉도', ul[0] - 30, ul[1] - 22);
+  g.fillText('독도', dokdo[0][0] - 20, dokdo[0][1] - 16);
+  g.fillStyle = INK(.85); g.font = "84px 'Brush'"; g.fillText('경상북도', 250, 230);
+  MAP = { c }; field(MAP, (x, y) => Math.hypot(x - 760, y - 560) / 1400 + fbm(x / 60, y / 60) * .4, 6);
+  // villages: points inside the main polygon
+  const inside = (x, y) => { let k = false; for (let i = 0, j = main.length - 1; i < main.length; j = i++) {
+    const [xi, yi] = main[i], [xj, yj] = main[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) k = !k; } return k; };
+  HERO = proj([128.70, 36.36]);
+  const R = rng(11);
+  while (DOTS.length < T.dots_out.length) { const x = 300 + R() * 900, y = 180 + R() * 760;
+    if (inside(x, y) && Math.hypot(x - HERO[0], y - HERO[1]) > 40 && DOTS.every(d => Math.hypot(d[0] - x, d[1] - y) > 34)) DOTS.push([x, y]); }
+  // order of going out: random, so the dark spreads everywhere
+  DOTS = DOTS.map(d => [d, R()]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
+}
+
+// ---------- particles (ink dust blown away) ----------
+function dust(cx, cy, w, h, n, seed, t0, t, dark = .7) {
+  if (t < t0) return; const R = rng(seed), u = t - t0;
+  for (let k = 0; k < n; k++) {
+    const x0 = cx + (R() - .5) * w, y0 = cy + (R() - .5) * h, vx = -40 - R() * 90, vy = -10 - R() * 30, dl = R() * .8, life = 1.2 + R() * 1.2;
+    const v = u - dl; if (v < 0 || v > life) continue;
+    const a = (1 - v / life) * dark, x = x0 + vx * v + Math.sin(v * 3 + k) * 6, y = y0 + vy * v - 8 * v * v;
+    ctx.fillStyle = INK(a); ctx.beginPath(); ctx.arc(x, y, .8 + R() * 2.2, 0, 6.28); ctx.fill();
+  }
+}
+const glow = (x, y, r, a) => { const gr = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+  gr.addColorStop(0, `rgba(190,45,32,${a})`); gr.addColorStop(.25, `rgba(190,45,32,${a * .45})`); gr.addColorStop(1, 'rgba(190,45,32,0)');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r * 4, 0, 6.28); ctx.fill();
+  ctx.fillStyle = `rgba(179,41,31,${a})`; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill(); };
+
+// ---------- figures ----------
+function figure(x, y, s, phase, bundle, a) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.strokeStyle = INK(a); ctx.fillStyle = INK(a); ctx.lineCap = 'round';
+  const sw = Math.sin(phase) * .5;
+  ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(0, -10); ctx.stroke();
+  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10 * sw, 4); ctx.moveTo(0, -10); ctx.lineTo(-10 * sw, 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(8 * -sw, -14); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -36, 5, 0, 6.28); ctx.fill();
+  if (bundle) { ctx.beginPath(); ctx.ellipse(7, -26, 8, 9, .3, 0, 6.28); ctx.fill(); }
+  ctx.restore();
+}
+
+// ---------- the valley (0–21.6 s) ----------
+function drawValley(t, alpha) {
+  // ink drop falling and blooming
+  const td = T.drop, drop = [960, 410];
+  if (t < td) { const p = lin(t, .25, td); if (p > 0) { const y = -30 + (drop[1] + 30) * p * p;
+      ctx.fillStyle = INK(.95); ctx.beginPath(); ctx.ellipse(drop[0], y, 7, 11, 0, 0, 6.28); ctx.fill(); } }
+  else { const u = t - td, r = 70 * eout(clamp(u / 1.1)), a = (1 - lin(t, 2.2, 4.4)) * .92;
+    if (a > 0) { ctx.fillStyle = INK(a); ctx.beginPath();
+      for (let k = 0; k <= 64; k++) { const an = k / 64 * 6.283, rr = r * (1 + .28 * (fbm(Math.cos(an) * 2 + 7, Math.sin(an) * 2) - .5) * 2);
+        k ? ctx.lineTo(drop[0] + Math.cos(an) * rr, drop[1] + Math.sin(an) * rr * .8) : ctx.moveTo(drop[0] + rr, drop[1]); }
+      ctx.fill(); } }
+  // mountains bloom out of the drop (far first), each ridge a little later
+  RIDGES.forEach((sp, i) => masked(sp, (t - td - .2 - i * .35) / 3.6 * 1.45, .12, false, 0, 0, 1, alpha));
+  // mist band between ridges
+  if (t > 1.5) { const gr = ctx.createLinearGradient(0, 560, 0, 700); gr.addColorStop(0, 'rgba(233,225,209,0)'); gr.addColorStop(.5, `rgba(233,225,209,${.55 * alpha})`); gr.addColorStop(1, 'rgba(233,225,209,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 560 + Math.sin(t * .3) * 6, W, 140); }
+  // village path
+  const pp = lin(t, 4.6, 6.0);
+  if (pp > 0) { ctx.strokeStyle = INK(.35 * alpha); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.setLineDash([2200 * pp, 3000]);
+    ctx.beginPath(); ctx.moveTo(340, 660); ctx.quadraticCurveTo(560, 700, 640, 860); ctx.quadraticCurveTo(900, 905, 1330, 880); ctx.stroke(); ctx.setLineDash([]); }
+  // houses: brushed in, lit, then dark and dried away
+  HPOS.forEach(([x, y, s, kind], i) => {
+    const sp = HOUSES[i], hx = x - 120 * s, hy = y - 150 * s, k = OUT_ORDER.indexOf(i), tOff = k < 0 ? 1e9 : T.lights_out[k];
+    const tin = 5.0 + i * .14;
+    if (t < tOff + .45) masked(sp, (t - tin) / 1.0 * 1.2, .1, false, hx, hy, s, alpha);
+    else { masked(sp.er, (t - tOff - .45) / 1.3 * 1.3 - .05, .12, true, hx, hy, s, alpha); dust(x, y - 50 * s, 150 * s, 80 * s, 40, i * 31 + 7, tOff + .45, t, .6 * alpha); }
+    // window light: comes on after the house is drawn, goes out at its time
+    const on = lin(t, tin + 1.1, tin + 1.6) * (1 - lin(t, tOff, tOff + .25)) * (i === 4 && t > T.zoom ? 0 : 1);
+    if (on > 0) { const fl = 1 + .08 * Math.sin(t * 7 + i) * Math.sin(t * 3.1 + i * 2); glow(x + (153 - 120) * s, y + (110 - 150) * s, 6 * s * fl, on * alpha); }
+    // a red ember fading right after the light goes out
+    if (t > tOff && t < tOff + .8) glow(x + (153 - 120) * s, y + (110 - 150) * s, 3 * s, (1 - lin(t, tOff, tOff + .8)) * .5 * alpha);
+    // smoke from the chimney while the house lives
+    const sm = lin(t, 6.3 + i * .2, 7.3 + i * .2) * (1 - lin(t, tOff - .2, tOff + .6));
+    if (sm > 0) { const cx = x + (201 - 120) * s, cy = y + (70 - 150) * s;
+      for (let j = 1; j < 34; j++) { const q = j / 34, wob = Math.sin(j * .28 - t * 1.6 + i) * j * .7;
+        ctx.strokeStyle = INK(.22 * (1 - q) * sm * alpha); ctx.lineWidth = 2 + q * 9;
+        ctx.beginPath(); ctx.moveTo(cx + wob + (j - 1) * 1.6, cy - (j - 1) * 7); ctx.lineTo(cx + Math.sin((j + 1) * .28 - t * 1.6 + i) * (j + 1) * .7 + j * 1.6, cy - j * 7); ctx.stroke(); } }
+  });
+  // children running along the path while the village lives
+  for (let k = 0; k < 3; k++) {
+    const u = lin(t, 6.4 + k * .35, 11.4 + k * .3); if (u <= 0 || u >= 1) continue;
+    const x = 660 + 640 * u, y = 868 + 10 * Math.sin(u * 3), a = Math.min(lin(u, 0, .08), 1 - lin(u, .85, 1));
+    figure(x, y - Math.abs(Math.sin(t * 9 + k)) * 6, .7, t * 9 + k, false, .85 * a * alpha);
+  }
+  // one grown-up leaving with a bundle, walking out to the pass on the left
+  { const u = lin(t, 12.3, 17.2); if (u > 0 && u < 1) {
+    const q = eio(u), x = 980 - 640 * q, y = 875 - 215 * q * q, a = Math.min(lin(u, 0, .1), 1 - lin(u, .8, 1));
+    figure(x, y, .85 - .5 * q, t * 5, true, .9 * a * alpha); } }
+  // the village name in brush, written top to bottom; washes out when the lights are gone
+  const blur = lin(t, T.name_blur, T.name_blur + 1.6);
+  ctx.save(); if (blur > 0) ctx.filter = `blur(${blur * 16}px)`;
+  const na = (1 - .75 * blur) * alpha;
+  masked(NAME, (t - 5.6) / 1.9 * 1.15, .06, false, 1520, 230 + blur * 30, 1, na);
+  ctx.restore();
+  const sa = lin(t, T.seal_small, T.seal_small + .12) * (1 - .6 * blur) * alpha;
+  if (sa > 0) { ctx.globalAlpha = sa; const s = 1 + .3 * (1 - eout(lin(t, T.seal_small, T.seal_small + .15))); ctx.drawImage(SEAL, 1580 - 40 * (s - 1), 870 - 40 * (s - 1), 80 * s, 80 * s); ctx.globalAlpha = 1; }
+}
+
+// ---------- the map (20–30.5 s) ----------
+function drawMap(t, alpha) {
+  if (!MAP || alpha <= 0) return;
+  const wash = lin(t, T.map_wash, T.map_wash + 1.2);
+  if (wash < 1) masked(MAP, wash > 0 ? wash * 1.5 : 99, .1, wash > 0, 0, 0, 1, alpha);
+  DOTS.forEach(([x, y], k) => {
+    const tOut = T.dots_out[k], on = lin(t, 20.6 + k * .006, 21.2 + k * .006) * (1 - lin(t, tOut, tOut + .2));
+    if (on > 0) glow(x, y, 4.5, on * alpha * (1 - wash));
+    if (t > tOut && t < tOut + 1.4) { const u = lin(t, tOut, tOut + 1.4);   // a small grey smudge where it was, then gone
+      ctx.fillStyle = INK(.4 * (1 - u) * alpha * (1 - wash)); ctx.beginPath(); ctx.arc(x - u * 18, y - u * 6, 4 + u * 3, 0, 6.28); ctx.fill(); }
+  });
+}
+
+// ---------- dialog (30.3–37 s) ----------
+function roughRect(x, y, w, h, p, seed) {          // brush-drawn rectangle, drawn up to fraction p of its perimeter
+  const R = rng(seed), per = 2 * (w + h), pts = [];
+  for (let s = 0; s <= per; s += 6) { let px, py;
+    if (s < w) [px, py] = [x + s, y]; else if (s < w + h) [px, py] = [x + w, y + s - w];
+    else if (s < 2 * w + h) [px, py] = [x + w - (s - w - h), y + h]; else [px, py] = [x, y + h - (s - 2 * w - h)];
+    pts.push([px + (fbm(s / 50, seed) - .5) * 6, py + (fbm(s / 50, seed + 4) - .5) * 6, s / per]); }
+  for (let i = 1; i < pts.length; i++) { if (pts[i][2] > p) break;
+    ctx.lineWidth = 2.5 + 3 * fbm(i / 7, seed); ctx.beginPath(); ctx.moveTo(pts[i - 1][0], pts[i - 1][1]); ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
+}
+function cursor(x, y, s, a) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.globalAlpha = a;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 46); ctx.lineTo(11, 35); ctx.lineTo(20, 55); ctx.lineTo(28, 51); ctx.lineTo(19, 32); ctx.lineTo(34, 32); ctx.closePath();
+  ctx.fillStyle = PAPER; ctx.fill(); ctx.strokeStyle = INK(.95); ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.restore();
+}
+function drawDialog(t) {
+  const t0 = T.dialog, ts = T.stamp, gone = lin(t, 36.4, 37.4);
+  if (t < t0) return;
+  const a = (1 - gone);
+  const bx = 600, by = 470, bw = 720, bh = 330;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = `rgba(233,225,209,${.9 * lin(t, t0, t0 + .4)})`; ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = INK(.9); roughRect(bx, by, bw, bh, eout(lin(t, t0, t0 + .8)), 3);
+  const ta = lin(t, t0 + .5, t0 + 1.0);
+  ctx.globalAlpha = a * ta; ctx.fillStyle = INK(.95); ctx.textAlign = 'center';
+  ctx.font = "700 54px 'Batang'"; ctx.fillText('삭제하시겠습니까?', 960, by + 100);
+  ctx.fillStyle = INK(.55); ctx.font = "400 30px 'Batang'"; ctx.fillText('감나무골 (경상북도)', 960, by + 152);
+  // buttons
+  const hover = lin(t, 33.0, 33.25) * (1 - lin(t, ts, ts + .1));
+  const btn = (x, label, hv, seed) => { ctx.fillStyle = INK(.12 * hv); ctx.fillRect(x, by + 205, 220, 82);
+    ctx.strokeStyle = INK(.85); roughRect(x, by + 205, 220, 82, eout(lin(t, t0 + .7, t0 + 1.3)), seed);
+    ctx.fillStyle = INK(.95); ctx.font = "700 38px 'Batang'"; ctx.fillText(label, x + 110, by + 260); };
+  btn(690, '예', hover, 7); btn(1010, '아니오', 0, 9);
+  ctx.restore();
+  // cursor drifts toward 예, waits, then is blown away as ink when the seal lands
+  const cp = eio(lin(t, 31.4, 33.1)), cx = 1560 + (800 - 1560) * cp, cy = 1000 + (by + 240 - 1000) * cp;
+  const press = 1 - .08 * Math.sin(Math.PI * lin(t, 33.55, 33.85));
+  if (t < ts) cursor(cx, cy, press, lin(t, 31.2, 31.6));
+  else dust(cx + 14, cy + 25, 40, 55, 60, 77, ts, t, .9);
+  // the seal of the people who still live here lands on 아니오
+  if (t >= ts) { const u = lin(t, ts, ts + .14), s = 1 + 2.2 * (1 - eout(u)), sx = 1120, sy = by + 246, sz = 150 * s;
+    const mvs = eio(lin(t, 36.6, 37.7)), qx = sx + (1545 - sx) * mvs, qy = sy + (530 - sy) * mvs, qz = sz * (1 - .45 * mvs);
+    ctx.globalAlpha = u; ctx.drawImage(SEALBIG, qx - qz / 2, qy - qz / 2, qz, qz); ctx.globalAlpha = 1;
+    // red spatter around the stamp
+    const R = rng(91), sp = lin(t, ts + .08, ts + .5);
+    if (sp > 0) for (let k = 0; k < 46; k++) { const an = R() * 6.28, d = 90 + R() * 210 * eout(sp), r = 1 + R() * 5;
+      ctx.fillStyle = `rgba(179,41,31,${(1 - lin(t, ts + 1.5, ts + 3.2)) * .8})`; ctx.beginPath(); ctx.arc(sx + Math.cos(an) * d, sy + Math.sin(an) * d * .8, r, 0, 6.28); ctx.fill(); }
+  }
+}
+let SEALBIG;
+
+// ---------- subtitles ----------
+const sub = document.getElementById('sub');
+function subtitles(t) {
+  let txt = '', a = 0;
+  T.narr_at.forEach((t0, i) => { if (i === 5) return; const d = T.narr_src[i][1] - T.narr_src[i][0];
+    if (t >= t0 - .2 && t < t0 + d + .5) { txt = T.narr_text[i]; a = Math.min(lin(t, t0 - .2, t0 + .1), 1 - lin(t, t0 + d + .1, t0 + d + .5)); } });
+  sub.textContent = txt; sub.style.opacity = a;
+}
+
+// ---------- camera: slow push into the valley, then it shrinks so the last lit window lands on its map dot ----------
+const AX = 1158 + 33 * .58, AY = 744 - 40 * .58;        // window of house 4
+function cam(t) {
+  const ze = eio(lin(t, T.zoom, T.zoom + 1.8)), push = 1 + .07 * ss(lin(t, 1, 19.5));
+  return { ze, s: push * (1 - ze) + .03 * ze, px: 960 + (HERO[0] - 960) * ze, py: 560 + (HERO[1] - 560) * ze,
+           qx: 960 + (AX - 960) * ze, qy: 560 + (AY - 560) * ze };
+}
+
+// ---------- frame ----------
+window.DUR = 40; window.SB = { bpm: 60 };
+window.seek = async function (t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none';
+  ctx.drawImage(PAPERC, 0, 0);
+  const shake = t > T.stamp && t < T.stamp + .35 ? (1 - lin(t, T.stamp, T.stamp + .35)) * 9 : 0;
+  ctx.translate(Math.sin(t * 91) * shake, Math.cos(t * 77) * shake);
+  // valley: slow push in; at 20 s it shrinks into its place on the map
+  const z = lin(t, T.zoom, T.zoom + 1.8), ze = eio(z);
+  const va = 1 - lin(t, T.zoom + .6, T.zoom + 1.6);
+  if (va > 0) {
+    const c = cam(t);
+    if (c.ze <= 0) { ctx.save(); ctx.translate(c.px, c.py); ctx.scale(c.s, c.s); ctx.translate(-c.qx, -c.qy); drawValley(t, va); ctx.restore(); }
+    else {   // while shrinking, the painting's edges soak away around the last lit window
+      const vb = tmp(W, H, 'vb'), g = vb.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);
+      ctx = g; g.save(); g.translate(c.px, c.py); g.scale(c.s, c.s); g.translate(-c.qx, -c.qy); drawValley(t, va); g.restore(); ctx = MAIN;
+      const hx = c.px + c.s * (AX - c.qx), hy = c.py + c.s * (AY - c.qy), R = 2400 + (.3 * W * c.s - 2400) * ss(clamp(c.ze / .12));
+      const gr = g.createRadialGradient(0, 0, 0, 0, 0, R); gr.addColorStop(0, '#000'); gr.addColorStop(.3, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.globalCompositeOperation = 'destination-in'; g.fillStyle = gr; g.save(); g.translate(hx, hy); g.scale(1, .45);
+      g.fillRect(-hx, -hy / .45, W, H / .45); g.restore(); g.globalCompositeOperation = 'source-over';
+      ctx.drawImage(vb, 0, 0);
+    }
+  }
+  // map grows out from the hero dot
+  if (t > T.zoom + .3 && t < T.dialog + 1) {
+    const ma = lin(t, T.zoom + .3, T.zoom + 1.4), ms = 1 + 2.5 * (1 - eout(lin(t, T.zoom, T.zoom + 1.8)));
+    ctx.save(); ctx.translate(HERO[0], HERO[1]); ctx.scale(ms, ms); ctx.translate(-HERO[0], -HERO[1]);
+    drawMap(t, ma); ctx.restore();
+  }
+  // the one light that never goes out: a valley window, then the hero dot, then it rises above the dialog
+  if (t > T.zoom) {
+    const c = cam(t), zz = c.ze, px = c.px + c.s * (AX - c.qx), py = c.py + c.s * (AY - c.qy);
+    const mv = eio(lin(t, T.map_wash + .4, T.dialog + .3)), hx = px + (960 - px) * mv, hy = py + (390 - py) * mv;
+    const beat = 1 + .25 * Math.max(0, Math.sin((t - 30) * Math.PI * 1.2)) ** 8;
+    const r = (3.5 + 1 * zz + 3.5 * mv) * beat * (t > T.title ? 1 + .4 * lin(t, T.title, T.title + .6) : 1);
+    glow(hx, hy, r, 1);
+  }
+  drawDialog(t);
+  // title
+  if (t > T.title) {
+    const u = lin(t, T.title, T.title + 1.2);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 360 + 1300 * eout(u), H); ctx.clip();
+    ctx.fillStyle = INK(.92); ctx.textAlign = 'center'; ctx.font = "110px 'Brush'"; ctx.fillText('경북, 삭제하시겠습니까', 960, 560); ctx.restore();
+    ctx.globalAlpha = lin(t, T.title + .7, T.title + 1.3); ctx.fillStyle = INK(.6); ctx.font = "400 32px 'Batang'"; ctx.textAlign = 'center';
+    ctx.fillText('사람이 떠나 지도에서 지워져 가는 경북의 작은 마을', 960, 640); ctx.globalAlpha = 1;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const end = lin(t, 39.55, 40); if (end > 0) { ctx.globalAlpha = end; ctx.drawImage(PAPERC, 0, 0); ctx.globalAlpha = 1; }
+  subtitles(t);
+};
+
+window.READY = (async () => {
+  T = await (await fetch('timing.json')).json();
+  await Promise.all([document.fonts.load("150px 'Brush'", '감나무골경상북도'), document.fonts.load("700 40px 'Batang'", '삭제하시겠습니까?예아니오사람'),
+                     document.fonts.load("400 30px 'Batang'", '감나무골경상북도울릉도독도')]);
+  makePaper();
+  const drop = [960, 410];
+  RIDGES.push(makeRidge({ base: 470, amp: 150, seed: 1.3, sharp: .5, depth: 300, a: .30, from: 0, to: W, dots: 40, line: .35, drop }));
+  RIDGES.push(makeRidge({ base: 600, amp: 120, seed: 4.1, sharp: .25, depth: 260, a: .52, from: 0, to: W, dots: 70, line: .6, drop }));
+  RIDGES.push(makeRidge({ base: 780, amp: 220, seed: 8.7, sharp: .0, depth: 340, a: .78, from: 0, to: 640, dots: 50, line: .9, drop }));
+  RIDGES.push(makeRidge({ base: 790, amp: 200, seed: 2.9, sharp: .0, depth: 340, a: .74, from: 1300, to: W, dots: 50, line: .9, drop }));
+  HPOS.forEach(([, , , kind], i) => HOUSES.push(makeHouse(kind, 101 + i * 17)));
+  makeName(); SEAL = makeSeal(80, '사람'); SEALBIG = makeSeal(300, '사람');
+  await makeMap();
+  await window.seek(0);
+})();
+</script>
+</body></html>
