@@ -1,0 +1,17 @@
+야간 근무 수칙 (45 s) — third-party material in this film
+
+Fonts (all SIL Open Font License 1.1, from Google Fonts, subset to the characters used):
+  Noto Sans KR (500, 800) — the printed rule sheet, the pixel title. https://fonts.google.com/noto/specimen/Noto+Sans+KR
+  Nanum Pen Script — the handwritten rule 4. https://fonts.google.com/specimen/Nanum+Pen+Script
+  Nanum Gothic Coding (700) — the closed captions. https://fonts.google.com/specimen/Nanum+Gothic+Coding
+
+Code adapted (MIT, Lemo-Opuscar style library, github.com/lemomo-ai/lemo-opuscar):
+  vhs.js and osd.js started from the library's Liminal Found Footage demo (recording pass, 5×7 bitmap font) and were changed
+  for a bodycam (fisheye, digital block tears, bodycam OSD, Korean pixel title).
+  Rendering, post-processing, sound helpers and mux come from the library's core/ tools.
+
+Software: three.js (MIT), Playwright / Chromium, ffmpeg, NumPy, SciPy, soundfile.
+
+Sound: every sound is synthesised in mix.py (no samples, no recordings). No music, no voice.
+Pictures: every surface is drawn in code (tex.js). No photographs, no stock footage.
+The store, the chime, the rule sheet and the device name CAM-03 are fictional.

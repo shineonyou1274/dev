@@ -31,7 +31,7 @@ export function buildWorld(scene) {
   const glassM = new THREE.MeshLambertMaterial({ color: '#2a3633', transparent: true, opacity: .32, depthWrite: false });
   plane(scene, glassM, 3.2, 2.55, -.8, 1.3, -.002, Math.PI);             // glass left of the door
   plane(scene, glassM, 2.2, 2.55, 2.9, 1.3, -.002, Math.PI);             // glass right of the door
-  const alu = lam({ color: '#4a514c' });
+  const alu = lam({ color: '#9aa19b' });
   for (const x of [-2.4, .8, 1.8, 4]) box(scene, alu, x - .03, x + .03, 0, 2.6, -.04, .02);
   box(scene, alu, -2.4, 4, 0, .12, -.04, .02);
   // the door: hinged at x = .8, swings inward
@@ -48,8 +48,8 @@ export function buildWorld(scene) {
   // outside: wet dark pavement, a far sodium lamp
   const oc = document.createElement('canvas'); oc.width = 512; oc.height = 256; const og = oc.getContext('2d');
   og.fillStyle = '#05080a'; og.fillRect(0, 0, 512, 256);
-  const sg = og.createRadialGradient(380, 70, 2, 380, 70, 120); sg.addColorStop(0, 'rgba(150,140,100,.55)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); og.fillStyle = sg; og.fillRect(0, 0, 512, 256);
-  og.fillStyle = 'rgba(30,34,32,1)'; og.fillRect(0, 170, 512, 86);
+  const sg = og.createRadialGradient(330, 80, 2, 330, 80, 190); sg.addColorStop(0, 'rgba(190,175,120,.9)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); og.fillStyle = sg; og.fillRect(0, 0, 512, 256);
+  og.fillStyle = 'rgba(52,56,50,1)'; og.fillRect(0, 170, 512, 86); og.fillStyle = 'rgba(160,150,110,.35)'; og.fillRect(250, 170, 160, 86);   // lamplight on the wet pavement
   const ot = new THREE.CanvasTexture(oc); ot.colorSpace = THREE.SRGBColorSpace;
   plane(scene, new THREE.MeshBasicMaterial({ map: ot, fog: false }), 30, 10, 1, 3, 9, Math.PI);
   plane(scene, lam({ color: '#1c201e' }), 30, 9, 1, -.01, 4.5, 0, -Math.PI / 2);

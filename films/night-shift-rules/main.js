@@ -151,6 +151,10 @@ EV.push({ t: T.flick, type: 'flick' }, { t: T.flick + .26, type: 'flick' }, { t:
 EV.push({ t: T.crouch[0], type: 'crouch' }, { t: T.turn[0], type: 'knees', d: T.turn[1] - T.turn[0] });
 EV.push({ t: T.pen[0] + .45, type: 'pen', d: T.pen[1] - .4 - T.pen[0] - .45 });
 for (const [t, v] of [[4.0, .7], [13.5, .6], [21.1, .5], [27.8, .7], [29.1, .5]]) EV.push({ t, type: 'cloth', v });
+EV.push({ t: T.hold1[0], type: 'hold', d: T.hold1[1] - T.hold1[0] }, { t: T.silence[0], type: 'silence', d: T.silence[1] - T.silence[0] });
+EV.push({ t: T.drag[0], type: 'drag', d: T.drag[1] - T.drag[0], peak: (T.shadow[0] + T.shadow[1]) / 2 });
+EV.push({ t: T.crouch[1], type: 'under', d: T.turn[0] - T.crouch[1] }, { t: T.silence[0] - .35, type: 'fridgeOff' }, { t: T.fridgeOn, type: 'fridgeOn' });
+EV.push({ t: T.door[0], type: 'outside', d: T.doorClose[1] - T.door[0] }, { t: T.black + .05, type: 'stop' });
 EV.sort((a, b) => a.t - b.t);
 
 // texts on screen for the reading-time check (boxes are approximate, in 1920×1080 pixels)

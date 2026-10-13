@@ -22,7 +22,7 @@ export const battery = t => (t < T.tear2[0] ? 3 : t < T.tear3[0] ? 2 : 1);
 // ---------- camera keyframes: [t, x, z, y(height), yaw, pitch] — eased between keys ----------
 // yaw: 0 looks -z (toward the fridges), -π/2 looks +x, -π looks +z (front wall with the sheet)
 const P0 = [-3.1, -2.2];                     // behind the counter
-const YDOOR = -2.62;                         // door at right, the sheet at the left edge
+const YDOOR = -2.18;                         // facing the door (the sheet is off to the right, out of frame)
 const K = [
   [0.0, ...P0, 1.32, YDOOR - .35, -.35],
   [1.7, ...P0, 1.32, YDOOR, -.02],           // camera clipped onto the vest settles
