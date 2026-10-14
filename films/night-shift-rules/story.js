@@ -9,6 +9,7 @@ export const T = {
   tear2: [21.0, 21.4], print1: 24.8, print2: 25.6, hand: [26.2, 27.6], back: [27.8, 29.0],
   tear3: [29.0, 29.4], drag: [29.4, 35.0], flick: 30.6, crouch: [31.2, 31.9], shadow: [33.2, 34.6], silence: [35.0, 36.2],
   fridgeOn: 36.2, turn: [36.4, 37.8], read4: [37.8, 42.4], pen: [41.6, 43.0], chime2: 43.4, freeze: 44.0, black: 44.5,
+  fig1: [15.0, 19.3], fig2: [21.45, 22.95], legs: [32.3, 34.4, 36.35], wallShadow: [43.45, 44.0],   // the thing: outside, aisle end, under the counter, behind you
 };
 // recording clock: real seconds after each tear, offset to the time the OSD shows
 const CLOCK = [[0, 1 * 3600 + 57 * 60 + 8], [T.tear1[1], 2 * 3600 + 14 * 60 + 3], [T.tear2[1], 3 * 3600 + 2 * 60 + 41], [T.tear3[1], 3 * 3600 + 47 * 60 + 12]];
@@ -70,7 +71,7 @@ export function HOLD(t) {
 // autofocus distance (m) with hunting: blur when pulled near
 export function FOCUS(t, d) {
   const hunt = (t0, dur) => { const u = (t - t0) / dur; if (u < 0 || u > 1) return 0; return Math.sin(u * Math.PI * 2.2) * (1 - u) * .7; };
-  return Math.max(.08, d * (1 - hunt(4.95, .7) - hunt(37.75, .8) - hunt(.6, 1.0) - hunt(14.55, .5) - hunt(21.05, .5) - hunt(29.05, .5)));
+  return Math.max(.08, d * (1 - hunt(4.95, .7) - hunt(37.75, .8) - hunt(.6, 1.0) - hunt(14.55, .5) - hunt(21.05, .5) - hunt(29.05, .5) - hunt(19.15, .55) - hunt(22.9, .5)));
 }
 
 // ---------- lights ----------

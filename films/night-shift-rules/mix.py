@@ -58,8 +58,8 @@ mono = mono * (1 - muf) + lp(mono, 700) * muf * 1.3
 for c in range(2): bed[:, c] += mono * (1 + .05 * (c - .5))
 
 # ---------- foley ----------
-def chime(at):                     # an original two-note door chime, through a small cheap speaker
-    for k, (f, d) in enumerate([(1318.5, .0), (1046.5, .38)]):
+def chime(at, pitch=1.0):          # an original two-note door chime, through a small cheap speaker
+    for k, (f, d) in enumerate([(1318.5 * pitch, .0), (1046.5 * pitch * (.97 if pitch < 1 else 1), .38 / pitch)]):
         x = t_(1.6); s = sum(a * np.sin(2 * np.pi * f * m * x) * np.exp(-x / (1.1 / m)) for m, a in [(1, 1), (2.76, .3), (5.4, .12)])
         s = bp(s * np.minimum(1, x / .004), 500, 5000)
         add(fx, s * .28, at + d, pan=-.2)
@@ -77,7 +77,7 @@ def scrape(at, d, v, bright):      # one dragged step: a slow heel scuff, then t
 
 for e in EV:
     k, t = e['type'], e['t']
-    if k == 'chime': chime(t)
+    if k == 'chime': chime(t, .9 if t > 43 else 1.0)          # the last one sags, like a tape slowing
     elif k == 'step': step(t, e.get('v', .7))
     elif k == 'cloth': cloth(t, e.get('v', .6))
     elif k == 'af': [tick(t + j * .05, .7) for j in range(4)]
@@ -105,15 +105,20 @@ for e in EV:
         d = e['d']; x = t_(d); s = bp(noise(d), 1800, 6000) * (.6 + .4 * np.sin(2 * np.pi * 23 * x) ** 2) * np.sin(np.pi * x / d) ** .5
         add(fx, s * .14, t, pan=.1)
     elif k == 'fridgeOn':
-        thud(t, .9, 48, .7)
+        thud(t, 1.4, 44, .9); x = t_(.45); add(fx, (np.sign(np.sin(2 * np.pi * 120 * x)) * .12 + bp(noise(.45), 2500, 8000) * .2) * np.exp(-x / .2), t + .02)   # everything restrikes at once
         x = t_(.6); add(fx, np.sin(2 * np.pi * (35 + 15 * x) * x) * np.minimum(1, x / .1) * np.exp(-x / .5) * .3, t)
     elif k == 'fridgeOff':
         x = t_(.3); add(fx, np.sin(2 * np.pi * 50 * x * (1 - x)) * np.exp(-x / .12) * .25, t)
     elif k == 'drag':
         t0, d, pk = t, e['d'], e['peak']; j = 0
         while t0 + j * 1.15 < t + d - .2:
-            at = t0 + j * 1.15; v = np.interp(at, [t, pk, t + d], [.12, 1, .85]); bright = np.interp(at, [t, pk], [900, 3200])
-            scrape(at, .75, v * .55, bright); j += 1
+            at = t0 + j * 1.15; v = np.interp(at, [t, pk, t + d], [.15, 1, .9]); bright = np.interp(at, [t, pk], [900, 3400])
+            if at < 34.4: scrape(at, .9, v * 1.0, bright); x = t_(.08); add(fx, lp(noise(.08), 600) * np.exp(-x / .015) * .5 * v, at + .02)   # heel, then the slide
+            j += 1
+    elif k == 'knock':           # from inside the fridge glass: dull, close
+        x = t_(.25); add(fx, (np.sin(2 * np.pi * 190 * x) * .6 + lp(noise(.25), 1200) * .5) * np.exp(-x / .035) * .55, t, pan=.05)
+    elif k == 'inhale':          # someone breathing in, right behind the mic
+        x = t_(.95); add(fx, lp(bp(noise(.95), 200, 3000), 2400) * np.sin(np.pi * x / .95) ** 1.4 * .5, t + .05, pan=-.35)
     elif k == 'stop':
         x = t_(.12); add(fx, np.sin(2 * np.pi * 1600 * x) * np.minimum(1, (.12 - x) / .01) * .1, t)
 
@@ -124,10 +129,16 @@ for h in ev('hold') + ev('silence'): held = np.maximum(held, win(h['t'], h['t'] 
 held = np.maximum(held, win(33.0, 36.2, .2, .05))                                                 # holding it under the counter too
 rate = .28 + .5 * fear
 phase = np.cumsum(rate) / SR * 2 * np.pi
-breath = bp(noise(DUR), 300, 2400) * np.clip(np.sin(phase), 0, 1) ** 2 * (.025 + .05 * fear) * (1 - held)
+breath = bp(noise(DUR), 300, 2400) * np.clip(np.sin(phase), 0, 1) ** 2 * (.04 + .09 * fear) * (1 - held)
 x = t_(1.4); exhale = bp(noise(1.4), 250, 1800) * np.sin(np.pi * x / 1.4) * .08
 for c in range(2): fx[:, c] += breath
 add(fx, exhale, 19.05); add(fx, exhale * 1.2, 36.45)
+
+# ---------- drone: low brown noise and two beating sines, rising toward each turn ----------
+dr_env = np.interp(tt, [0, 14.5, 20.5, 21.0, 29.0, 34.9, 35.0, 36.2, 41.0, 44.0], [0, 0, .45, .5, .8, 1, 0, .35, .4, 1])
+brown = lp(np.cumsum(noise(DUR)) / 400, 60); brown -= np.convolve(brown, np.ones(9600) / 9600, mode='same')
+drone = (brown * 1.2 + np.sin(2 * np.pi * 41 * tt) * .25 + np.sin(2 * np.pi * 43.5 * tt) * .25 + np.sin(2 * np.pi * 82.5 * tt) * .06) * dr_env * .55
+for c in range(2): fx[:, c] += drone
 
 # ---------- recording breaks ----------
 mix = bed + fx

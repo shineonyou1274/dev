@@ -123,13 +123,17 @@ export function drawFog(cv, t, T) {
   g.fillStyle = gr; g.fillRect(0, 0, W, H);
   for (let k = 0; k < 900; k++) { g.fillStyle = `rgba(250,252,248,${.25 * R()})`; g.beginPath(); g.arc(R() * W, R() * H, .6 + R() * 1.6, 0, 7); g.fill(); }
   // prints clear the fog (destination-out); they bloom in over ~0.6 s and run a little
-  g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000'; g.shadowColor = '#000'; g.shadowBlur = 3;
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(28,36,32,.9)'; g.shadowColor = 'rgba(28,36,32,.6)'; g.shadowBlur = 4;   // wet print: darker than the fog
   const k1 = Math.min(1, Math.max(0, (t - T.print1) / .6)), k2 = Math.min(1, Math.max(0, (t - T.print2) / .6));
   if (k1 > 0) hand(g, 112, 205, .86 + .04 * k1, .72 * k1);
   if (k2 > 0) hand(g, 168, 290, .82 + .03 * k2, .64 * k2);
   // drips below the prints
   if (k1 > .5) for (let d = 0; d < 4; d++) { const len = Math.min(70, (t - T.print1 - .3) * 40) * (.5 + .5 * ((d * 37) % 7) / 7); g.fillRect(100 + d * 7, 232, 2, len * .8); }
   g.shadowBlur = 0; g.globalCompositeOperation = 'source-over';
+  // someone breathing on the inside of the glass at head height: a fog patch that swells and shrinks
+  if (t > 25.9 && t < 29.0) { const b = .5 + .5 * Math.sin((t - 25.9) * Math.PI * 2 * .55), a = Math.min(1, (t - 25.9) / .5) * (.45 + .5 * b);
+    const gr = g.createRadialGradient(118, 150, 2, 118, 150, 34 + 10 * b); gr.addColorStop(0, `rgba(245,248,244,${a})`); gr.addColorStop(1, 'rgba(245,248,244,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(118, 150, 46 + 12 * b, 30 + 8 * b, 0, 0, 7); g.fill(); }
 }
 
 // ---------- hands entering the frame (camera-space billboards) ----------

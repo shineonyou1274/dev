@@ -11,7 +11,7 @@ const plane = (scene, mat, w, h, x, y, z, ry = 0, rx = 0) => { const m = new THR
 
 // fluorescent fixtures (x, z); 'dead' one hangs over the aisle
 export const FIX = [];
-for (const z of [-1.3, -3.1, -4.9, -6.7, -8.3]) for (const x of [-2.9, -1.0, 1.0, 2.9]) FIX.push({ x, z, kind: (x === 1.0 && z === -6.7) ? 'dead' : 'ok' });
+for (const z of [-1.3, -3.1, -4.9, -6.7, -8.3]) for (const x of [-2.9, -1.0, 1.0, 2.9]) FIX.push({ x, z, kind: ((x === 1.0 && z === -6.7) || (Math.abs(x) === 1.0 && z === -8.3)) ? 'dead' : 'ok' });   // the far aisle end is dark
 
 export function buildWorld(scene) {
   const W = {};
@@ -53,6 +53,10 @@ export function buildWorld(scene) {
   const ot = new THREE.CanvasTexture(oc); ot.colorSpace = THREE.SRGBColorSpace;
   plane(scene, new THREE.MeshBasicMaterial({ map: ot, fog: false }), 30, 10, 1, 3, 9, Math.PI);
   plane(scene, lam({ color: '#1c201e' }), 30, 9, 1, -.01, 4.5, 0, -Math.PI / 2);
+  { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(128, 30, 4, 128, 40, 140); gr.addColorStop(0, '#b8a46e'); gr.addColorStop(.5, '#4a4232'); gr.addColorStop(1, '#0a0a08');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    plane(scene, new THREE.MeshBasicMaterial({ map: t, fog: false }), 9, 4.5, 14.3, 2.2, 6.5, Math.atan2(-17.4, -8.7)); }
 
   // counter (front face toward the store), POS, cigarette wall behind the operator
   const wood = lam({ map: TX.plainTex('#a59a80', 4, 5000) }), dark = lam({ color: '#3e4440' });
@@ -95,8 +99,8 @@ export function buildWorld(scene) {
   for (let k = -4; k <= 4; k++) {
     const x = k * .72;
     const bt = TX.bottlesTex(40 + k);
-    plane(scene, new THREE.MeshBasicMaterial({ map: bt, color: new THREE.Color(.42, .47, .43) }), .66, 1.9, x, 1.15, -8.905);
-    plane(scene, new THREE.MeshLambertMaterial({ map: k === 0 ? W.fogTex : fogStatic, transparent: true, depthWrite: false, emissive: '#1c201d' }), .66, 1.9, x, 1.15, -8.87);
+    plane(scene, new THREE.MeshBasicMaterial({ map: bt, color: new THREE.Color(.2, .23, .21) }), .66, 1.9, x, 1.15, -8.905);
+    plane(scene, new THREE.MeshLambertMaterial({ map: k === 0 ? W.fogTex : fogStatic, transparent: true, depthWrite: false, emissive: '#4a524a' }), .66, 1.9, x, 1.15, -8.87);
     box(scene, alu, x - .36, x - .33, .2, 2.12, -8.92, -8.85);
     box(scene, lam({ color: '#8b918c' }), x + .24, x + .26, .9, 1.4, -8.86, -8.83);
   }
@@ -120,7 +124,7 @@ export function buildWorld(scene) {
     const L = new THREE.PointLight('#f2f6e6', 0, 0, 2); L.position.set(f.x, RH - .25, f.z); scene.add(L);
     W.lights.push({ f, L, tubes });
   }
-  scene.add(new THREE.HemisphereLight('#e8eedf', '#6f6a55', .25));
+  scene.add(new THREE.HemisphereLight('#e8eedf', '#6f6a55', .08));
   // the shadow that crosses the floor strip (a soft dark ellipse lying on the floor)
   const shc = document.createElement('canvas'); shc.width = 256; shc.height = 128; const shg = shc.getContext('2d');
   const sgr = shg.createRadialGradient(128, 64, 4, 128, 64, 64); sgr.addColorStop(0, '#fff'); sgr.addColorStop(.55, '#e8e8e8'); sgr.addColorStop(1, '#000');   // alphaMap reads the green channel
@@ -134,6 +138,7 @@ export function updateLights(W, g, dim) {
   for (const { f, L, tubes } of W.lights) {
     const k = f.kind === 'dead' ? 0 : g * dim(f);
     L.intensity = 2.6 * k;
+    if (f.kind !== 'dead') tubes.forEach(m => m.visible = true);
     if (f.kind !== 'dead') tubes.forEach(m => m.material.color.setRGB(1.6 * k + .25, 1.7 * k + .26, 1.55 * k + .24));
   }
 }

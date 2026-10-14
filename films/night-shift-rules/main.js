@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { makePost } from '/core/three/post.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { clamp, seg, ss, lerp, hash, vnoise, env } from '/core/lib.js';
+import { clamp, seg, ss, eo, lerp, hash, vnoise, env } from '/core/lib.js';
 import { DUR, T, camKey, speed, FEAR, HOLD, FOCUS, gLight, sensor, doorAngle, clock, battery, CAPS } from './story.js';
 import { buildWorld, updateLights } from './world.js';
+import { makeFigure, shadowCanvas } from './figure.js';
 import * as TX from './tex.js';
 import { VHS } from './vhs.js';
 import { drawOSD, text as osdText } from './osd.js';
@@ -20,7 +21,7 @@ renderer.setPixelRatio(1); renderer.setSize(W, H);
 renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = .95;
 document.getElementById('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0, 0, 0);
-scene.fog = new THREE.FogExp2(new THREE.Color(.12, .14, .11), .035);
+scene.fog = new THREE.FogExp2(new THREE.Color(.05, .06, .045), .07);
 const HFOV = 85, VFOV = 2 * Math.atan(Math.tan(HFOV / 2 * Math.PI / 180) / (4 / 3)) * 180 / Math.PI;
 const camera = new THREE.PerspectiveCamera(VFOV, 4 / 3, .03, 60); camera.rotation.order = 'YXZ'; scene.add(camera);
 const post = makePost(renderer, scene, camera, SW, SH, { ssaa: 1, ao: false });
@@ -50,6 +51,9 @@ let PENTIP = drawWall(0);
 // hands: flat cut-outs in world space, parallel to the surface they touch
 const handPlane = (cv, w, h = w) => { const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: .05 })); m.visible = false; scene.add(m); return m; };
+const fig = makeFigure(scene);
+const wallSh = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.4), new THREE.MeshBasicMaterial({ color: '#000', alphaMap: new THREE.CanvasTexture(shadowCanvas()), transparent: true, depthWrite: false, opacity: 0 }));
+wallSh.rotation.y = Math.PI; scene.add(wallSh);
 const rag = handPlane(TX.ragHandCanvas(), .42, .84), pen = handPlane(TX.penHandCanvas(), .24);
 pen.rotation.y = Math.PI;
 
@@ -93,15 +97,27 @@ function render(t) {
   const cp = camPose(tv);
   camera.position.set(cp.x, cp.y, cp.z); camera.rotation.set(cp.pitch, cp.yaw, cp.roll); camera.updateMatrixWorld();
   // lights: the flicker, the aisle light that shudders while something drags, and the fixtures the shadow passes under
-  const g = gLight(tv), shU = seg(tv, T.shadow[0], T.shadow[1]), shX = lerp(-4.3, -1.7, shU), inSh = tv > T.shadow[0] && tv < T.shadow[1];
+  const g = gLight(tv);
+  // the thing
+  fig.visible = false; let legX = null;
+  if (tv >= T.fig1[0] && tv < T.fig1[1]) { fig.visible = true; fig.position.set(6.3, 0, 2.5); fig.pose({ tilt: .35, lean: .12 }); }
+  if (tv >= T.fig2[0] && tv < T.fig2[1]) { fig.visible = true; fig.position.set(-.45, 0, -8.35); fig.pose({ tilt: .55, lean: .22 }); }
+  if (tv >= T.legs[0] && tv < T.legs[2]) { const u = seg(tv, T.legs[0], T.legs[1]); legX = lerp(-4.4, -3.0, u);
+    fig.visible = true; fig.position.set(legX, 0, -3.8); fig.pose({ step: (legX + 4.4) / .42 * Math.PI, walk: u < 1 ? 1 : 0, tilt: .45, lean: .2 }); }
+  fig.face(camera);
+  const inSh = legX !== null, shX = legX ?? 0, shU = .5;
   updateLights(Wd, g, f => {
     let k = 1;
     if (tv > T.drag[0] && tv < T.silence[1] && f.z < -3.5 && f.x > -1.5 && f.x < 1.5) k *= .75 + .25 * (hash(Math.floor(tv * 18) + f.z) > .25 ? 1 : .2);
     if (inSh && Math.abs(f.z + 4.9) < .8) k *= 1 - .55 * Math.exp(-((f.x - shX) ** 2) / 1.5);
+    k *= (f.x < -1.5 && f.z > -3.5) ? .85 : f.z > -5.5 ? .28 : .12;          // night saving: only the counter is fully lit
     return k;
   });
-  Wd.shadow.material.opacity = inSh ? .8 * Math.sin(Math.PI * shU) : 0;
-  Wd.shadow.position.set(shX, .004, -4.7); Wd.shadow.scale.set(.75, 3.6, 1);   // stretched toward the camera by the lights behind it
+  Wd.shadow.material.opacity = inSh ? .78 : 0;
+  Wd.shadow.position.set(shX, .004, -3.3); Wd.shadow.scale.set(.5, 2.4, 1);   // its shadow, thrown toward the camera by the lights behind it
+  // its shadow on the wall, from behind the operator, leaning in over the marks
+  { const u = seg(tv, T.wallShadow[0], T.wallShadow[1]); wallSh.material.opacity = tv >= T.wallShadow[0] ? .82 * ss(u) : 0;
+    wallSh.position.set(-2.97, .57 - .25 * (1 - eo(u)), -.009); wallSh.scale.setScalar(1 + .1 * u); }   // head lands over rule 4 and the marks
   // door, sensor, fridge fog
   Wd.door.rotation.y = -doorAngle(tv);
   const sk = sensor(tv); Wd.sensorM.color.setRGB(sk * 9, sk * .35, sk * .2); Wd.sensorL.intensity = sk * 1.4;
@@ -155,6 +171,7 @@ EV.push({ t: T.hold1[0], type: 'hold', d: T.hold1[1] - T.hold1[0] }, { t: T.sile
 EV.push({ t: T.drag[0], type: 'drag', d: T.drag[1] - T.drag[0], peak: (T.shadow[0] + T.shadow[1]) / 2 });
 EV.push({ t: T.crouch[1], type: 'under', d: T.turn[0] - T.crouch[1] }, { t: T.silence[0] - .35, type: 'fridgeOff' }, { t: T.fridgeOn, type: 'fridgeOn' });
 EV.push({ t: T.door[0], type: 'outside', d: T.doorClose[1] - T.door[0] }, { t: T.black + .05, type: 'stop' });
+EV.push({ t: T.fig2[0], type: 'drone2' }, { t: T.wallShadow[0], type: 'inhale' }, { t: 24.95, type: 'knock' }, { t: 25.35, type: 'knock' });
 EV.sort((a, b) => a.t - b.t);
 
 // texts on screen for the reading-time check (boxes are approximate, in 1920×1080 pixels)
